@@ -10,5 +10,5 @@ const router = express.Router();
 router.post("/register", register);
 router.post("/login", login);
 router.get("/profile", isAuthenticated, userProfile);
-
+router.post("/refresh-token");
 module.exports = router;

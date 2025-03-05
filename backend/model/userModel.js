@@ -69,4 +69,16 @@ userSchema.methods.jwtAccessToken = function () {
   );
 };
 
+userSchema.methods.jwtRefreshToken = function () {
+  const secret = process.env.JWT_REFRESH_TOKEN;
+  if (!secret) {
+    return ErrorResponse("JWT_REFRESH_TOKEN muhit o‘zgaruvchisi topilmadi!");
+  }
+  return jwt.sign(
+    { id: this._id, role: this.role },
+    process.env.JWT_REFRESH_TOKEN,
+    { expiresIn: "2m" }
+  );
+};
+
 module.exports = mongoose.model("userModel", userSchema);

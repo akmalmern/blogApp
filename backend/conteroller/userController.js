@@ -1,6 +1,6 @@
 const userModel = require("../model/userModel");
 const ErrorResponse = require("../utils/errorResponse");
-
+const jwt = require("jsonwebtoken");
 const register = async (req, res, next) => {
   const { userName, email, password, role } = req.body;
 
@@ -36,6 +36,14 @@ const register = async (req, res, next) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 60 * 1000,
+    });
+
+    const refreshToken = user.jwtRefreshToken();
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 120 * 1000,
     });
 
     res.status(201).json({
@@ -83,11 +91,19 @@ const login = async (req, res, next) => {
       sameSite: "strict",
       maxAge: 60 * 1000,
     });
+    const refreshToken = user.jwtRefreshToken();
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 120 * 1000,
+    });
 
     res.status(200).json({
       success: true,
       message: "Tzimga kirdingiz",
       accessToken,
+      refreshToken,
       user,
     });
   } catch (error) {
@@ -110,4 +126,35 @@ const userProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, userProfile };
+const refreshAccessToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.cookies;
+    if (!refreshToken) {
+      return next(new ErrorResponse("Yaroqsiz yoki muddati o'tgan token", 403));
+    }
+    // rerfresh tokenni tekshirish
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_TOKEN);
+
+    const user = await userModel.findById(decoded.id);
+    if (!user) {
+      return next(new ErrorResponse("Foydalanuvchi topilmadi", 404));
+    }
+    // yangi access token yaratish;
+    const newAccessToken = user.jwtAccessToken();
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 60 * 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      accessToken: newAccessToken,
+    });
+  } catch (error) {
+    next(new ErrorResponse(error.message, 500));
+  }
+};
+
+module.exports = { register, login, userProfile, refreshAccessToken };
