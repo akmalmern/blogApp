@@ -1,8 +1,9 @@
 const userModel = require("../model/userModel");
 const ErrorResponse = require("../utils/errorResponse");
 const jwt = require("jsonwebtoken");
+
 const register = async (req, res, next) => {
-  const { userName, email, password, role } = req.body;
+  const { userName, email, password, image, role } = req.body;
 
   const existUser = await userModel.findOne({ email });
   if (existUser) {
@@ -23,10 +24,12 @@ const register = async (req, res, next) => {
   }
 
   try {
+    const image = req.file ? req.file.filename : null; // Faqat fayl nomini saqlaymiz
     const user = await userModel.create({
       userName,
       email,
       password,
+      image,
       role,
     });
 
@@ -103,7 +106,7 @@ const login = async (req, res, next) => {
       success: true,
       message: "Tzimga kirdingiz",
       accessToken,
-      refreshToken,
+
       user,
     });
   } catch (error) {
@@ -111,15 +114,39 @@ const login = async (req, res, next) => {
   }
 };
 
-const userProfile = async (req, res, next) => {
+const updateUser = async (req, res, next) => {
   try {
-    const user = await userModel.findById(req.user.id).select("-password");
-    if (!user) {
-      return next(new ErrorResponse("Foydalanuvchi topilmadi", 404));
+    const { userName, password, oldPassword, image } = req.body;
+    const userId = req.user.id;
+    if (!userId) {
+      return next(new ErrorResponse("Foydalanuvchi tizimga kirmagan", 401));
+    }
+  } catch (error) {}
+};
+
+const getUsers = async (req, res, next) => {
+  try {
+    const users = await userModel.find().select("-password ");
+    if (!users) {
+      return next(new ErrorResponse("Foydalanuvchilar mavjud emas", 404));
     }
     res.status(200).json({
       success: true,
-      user,
+      users,
+    });
+  } catch (error) {
+    next(new ErrorResponse(error.message, 500));
+  }
+};
+const userProfile = async (req, res, next) => {
+  // const user = await userModel.findById(req.user.id).select("-password");
+  // if (!user) {
+  //   return next(new ErrorResponse("Foydalanuvchi topilmadi", 404));
+  // }
+  try {
+    res.status(200).json({
+      success: true,
+      user: req.user, // req user da bazaga qayta murojat qilish shart emas malumotlar IsAuthenticateddan ceshlanib keladi
     });
   } catch (error) {
     next(new ErrorResponse(error.message, 500));
@@ -150,6 +177,7 @@ const refreshAccessToken = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
+
       accessToken: newAccessToken,
     });
   } catch (error) {
@@ -157,4 +185,4 @@ const refreshAccessToken = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, userProfile, refreshAccessToken };
+module.exports = { register, login, userProfile, refreshAccessToken, getUsers };

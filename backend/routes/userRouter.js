@@ -3,12 +3,17 @@ const {
   register,
   login,
   userProfile,
+  refreshAccessToken,
+  getUsers,
 } = require("../conteroller/userController");
-const { isAuthenticated } = require("../middlware/isAuth");
+const { isAuthenticated, isAdmin } = require("../middlware/isAuth");
 const router = express.Router();
+const uploadMiddleware = require("../middlware/uploadMiddleware");
 
-router.post("/register", register);
+router.post("/register", uploadMiddleware, register);
 router.post("/login", login);
+router.get("/users", isAuthenticated, getUsers);
 router.get("/profile", isAuthenticated, userProfile);
-router.post("/refresh-token");
+router.post("/refresh-token", refreshAccessToken);
+
 module.exports = router;

@@ -24,6 +24,9 @@ const userSchema = new mongoose.Schema(
         "Parolda kamida 1 ta katta harf, 1 ta kichik harf, 1 ta raqam va maxsus belgi boʻlishi kerak.",
       ],
     },
+    image: {
+      type: String,
+    },
     role: {
       type: String,
       enum: {
@@ -33,6 +36,7 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
   },
+  { versionKey: false },
   { timestamps: true }
 );
 
