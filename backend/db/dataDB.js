@@ -1,8 +1,7 @@
 const mongoose = require("mongoose");
-
-const dataDB = () => {
+const dataDB = async () => {
   try {
-    mongoose.connect(process.env.DB);
+    await mongoose.connect(process.env.DB);
     console.log("db ga ulandi");
   } catch (error) {
     console.log(error);

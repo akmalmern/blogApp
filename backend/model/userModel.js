@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema(
   {
     userName: {
       type: String,
+      unique: true,
       required: [true, "Isimni kiritishingiz kerak!"],
     },
     email: {
@@ -35,9 +36,19 @@ const userSchema = new mongoose.Schema(
       },
       default: "user",
     },
+    resetPasswordToken: {
+      type: String,
+      sparse: true, // Faqat mavjud bo‘lganda indekslanadi
+      default: null,
+    },
+    resetPasswordExpire: {
+      type: Date,
+      default: null,
+      expires: 180, // 3 daqiqadan keyin avtomatik o‘chadi
+    },
   },
-  { versionKey: false },
-  { timestamps: true }
+
+  { timestamps: true, versionKey: false }
 );
 
 userSchema.pre("save", async function (next) {
@@ -69,7 +80,7 @@ userSchema.methods.jwtAccessToken = function () {
   return jwt.sign(
     { id: this._id, role: this.role },
     process.env.JWT_ACCESS_TOKEN,
-    { expiresIn: "1m" }
+    { expiresIn: "1h" }
   );
 };
 
@@ -81,7 +92,7 @@ userSchema.methods.jwtRefreshToken = function () {
   return jwt.sign(
     { id: this._id, role: this.role },
     process.env.JWT_REFRESH_TOKEN,
-    { expiresIn: "2m" }
+    { expiresIn: "1d" }
   );
 };
 

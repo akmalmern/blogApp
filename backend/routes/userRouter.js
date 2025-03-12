@@ -5,6 +5,9 @@ const {
   userProfile,
   refreshAccessToken,
   getUsers,
+  updateUser,
+  forgotPassword,
+  resetPassword,
 } = require("../conteroller/userController");
 const { isAuthenticated, isAdmin } = require("../middlware/isAuth");
 const router = express.Router();
@@ -15,5 +18,8 @@ router.post("/login", login);
 router.get("/users", isAuthenticated, getUsers);
 router.get("/profile", isAuthenticated, userProfile);
 router.post("/refresh-token", refreshAccessToken);
+router.put("/update-user", isAuthenticated, uploadMiddleware, updateUser);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 module.exports = router;

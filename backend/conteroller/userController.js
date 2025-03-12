@@ -1,6 +1,11 @@
 const userModel = require("../model/userModel");
 const ErrorResponse = require("../utils/errorResponse");
 const jwt = require("jsonwebtoken");
+const fs = require("fs").promises; // Fayl tizimi bilan ishlash uchun
+const path = require("path"); // Fayl yo‘llarini boshqarish uchun
+const bcrypt = require("bcryptjs"); // Parolni hash qilish uchun
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 const register = async (req, res, next) => {
   const { userName, email, password, image, role } = req.body;
@@ -38,7 +43,7 @@ const register = async (req, res, next) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 60 * 1000,
+      maxAge: 60 * 60 * 1000,
     });
 
     const refreshToken = user.jwtRefreshToken();
@@ -46,7 +51,7 @@ const register = async (req, res, next) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 120 * 1000,
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
     res.status(201).json({
@@ -56,6 +61,7 @@ const register = async (req, res, next) => {
       user,
     });
   } catch (error) {
+    console.log(error);
     if (error.name === "ValidationError") {
       const errorMessages = Object.values(error.errors).map(
         (val) => val.message
@@ -92,14 +98,14 @@ const login = async (req, res, next) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 60 * 1000,
+      maxAge: 60 * 60 * 1000,
     });
     const refreshToken = user.jwtRefreshToken();
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 120 * 1000,
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({
@@ -116,12 +122,78 @@ const login = async (req, res, next) => {
 
 const updateUser = async (req, res, next) => {
   try {
-    const { userName, password, oldPassword, image } = req.body;
-    const userId = req.user.id;
-    if (!userId) {
+    const { userName, password, newPassword } = req.body;
+    const userId = req.user._id;
+
+    // Foydalanuvchini olish (parol bilan)
+    const user = await userModel.findById(userId).select("+password");
+    if (!user) {
       return next(new ErrorResponse("Foydalanuvchi tizimga kirmagan", 401));
     }
-  } catch (error) {}
+
+    // Yangilangan ma'lumotlarni tayyorlash
+    const updatedData = {
+      userName: userName || user.userName,
+    };
+
+    // Parol tekshiruvi va yangilanishi (faqat newPassword bo‘lsa)
+    if (newPassword) {
+      if (!password) {
+        return next(new ErrorResponse("Eski parolni kiritish majburiy", 401));
+      }
+      const isMatch = await user.parolniTekshirish(password);
+      if (!isMatch) {
+        return next(new ErrorResponse("Eski parol noto‘g‘ri", 401));
+      }
+      if (newPassword.length < 4) {
+        return next(
+          new ErrorResponse(
+            "Yangi parol kamida 4 belgidan iborat bo‘lishi kerak",
+            400
+          )
+        );
+      }
+      // Parolni qo‘lda hash qilish
+      const salt = await bcrypt.genSalt(10);
+      updatedData.password = await bcrypt.hash(newPassword, salt);
+    }
+
+    // Rasm o‘zgartirish logikasi
+    if (req.file) {
+      if (user.image) {
+        const oldImagePath = path.join(__dirname, "../uploads", user.image);
+        try {
+          await fs.unlink(oldImagePath);
+        } catch (err) {
+          console.error("Eski rasmni o‘chirishda xato:", err.message);
+        }
+      }
+      updatedData.image = req.file.filename;
+    }
+
+    // Foydalanuvchi ma'lumotlarini yangilash
+    const updatedUser = await userModel
+      .findByIdAndUpdate(userId, updatedData, {
+        new: true, // Yangilangan ma'lumotni qaytaradi
+        runValidators: true, // Schema validatsiyalarini ishga tushiradi
+      })
+      .select("-password");
+
+    res.status(200).json({
+      success: true,
+      message: "Foydalanuvchi ma'lumotlari muvaffaqiyatli yangilandi",
+      user: updatedUser,
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const errorMessages = Object.values(error.errors).map(
+        (val) => val.message
+      );
+      return next(new ErrorResponse(errorMessages[0], 400));
+    }
+    console.error("Server xatosi:", error.stack);
+    return next(new ErrorResponse("Server xatosi", 500));
+  }
 };
 
 const getUsers = async (req, res, next) => {
@@ -172,7 +244,7 @@ const refreshAccessToken = async (req, res, next) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 60 * 1000,
+      maxAge: 60 * 60 * 1000,
     });
 
     res.status(200).json({
@@ -185,4 +257,118 @@ const refreshAccessToken = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, userProfile, refreshAccessToken, getUsers };
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER, // .env faylda saqlang
+    pass: process.env.EMAIL_PASS, // Gmail uchun App Password
+  },
+});
+
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return next(new ErrorResponse("Email kiritish majburiy", 400));
+
+    const user = await userModel.findOne({ email });
+    if (!user)
+      return next(
+        new ErrorResponse("Bu email bilan foydalanuvchi topilmadi", 404)
+      );
+
+    // 6 raqamli tasodifiy kod generatsiyasi
+    const resetToken = crypto.randomInt(100000, 1000000).toString();
+    const resetTokenExpire = Date.now() + 3 * 60 * 1000;
+
+    await userModel.updateOne(
+      { _id: user._id },
+      {
+        resetPasswordToken: resetToken,
+        resetPasswordExpire: resetTokenExpire,
+      }
+    );
+
+    const message = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Parolni tiklash kodi",
+      html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h4>Parolni tiklash</h4>
+        <p>Sizning parolni tiklash kodingiz: <strong>${resetToken}</strong></p>
+        <p>Kod 3 daqiqa amal qiladi.</p>
+       
+      </div>
+    `,
+    };
+    await transporter.sendMail(message);
+
+    res.status(200).json({
+      success: true,
+      message: "Tasdiqlash kodi emailingizga yuborildi",
+    });
+  } catch (error) {
+    console.error("Email yuborishda xato:", error.stack);
+    return next(new ErrorResponse("Email yuborishda xatolik yuz berdi", 500));
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { email, resetToken, newPassword } = req.body;
+
+    // Majburiy maydonlarni tekshirish
+    if (!email || !resetToken || !newPassword) {
+      return next(
+        new ErrorResponse("Email, kod va yangi parol kiritish majburiy", 400)
+      );
+    }
+
+    // Foydalanuvchini topish va tokenni tekshirish
+    const user = await userModel.findOne({
+      email,
+      resetPasswordToken: resetToken,
+      resetPasswordExpire: { $gt: Date.now() }, // Kod hali amalda
+    });
+
+    if (!user) {
+      return next(
+        new ErrorResponse("Noto‘g‘ri kod yoki kodning muddati tugagan", 400)
+      );
+    }
+
+    // Yangi parol uzunligini tekshirish
+    if (newPassword.length < 8) {
+      return next(
+        new ErrorResponse(
+          "Yangi parol kamida 8 belgidan iborat bo‘lishi kerak",
+          400
+        )
+      );
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = null; // Kodni o‘chirish
+    user.resetPasswordExpire = null; // Muddatni o‘chirish
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Parol muvaffaqiyatli yangilandi",
+    });
+  } catch (error) {
+    console.error("Parolni tiklashda xato:", error.stack);
+    return next(new ErrorResponse("Parolni tiklashda xatolik yuz berdi", 500));
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  userProfile,
+  refreshAccessToken,
+  getUsers,
+  updateUser,
+  forgotPassword,
+  resetPassword,
+};

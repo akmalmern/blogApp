@@ -6,7 +6,6 @@ const ErrorResponse = require("../utils/errorResponse");
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = process.env.UPLOAD_DIR || "uploads/";
-
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -49,7 +48,7 @@ const upload = multer({
   fileFilter: fileFilter,
 });
 
-// Xatolik  uchun middleware
+// Xatolik uchun middleware (fayl ixtiyoriy)
 const uploadMiddleware = (req, res, next) => {
   upload.single("image")(req, res, (err) => {
     if (err instanceof multer.MulterError) {
@@ -65,9 +64,7 @@ const uploadMiddleware = (req, res, next) => {
         new ErrorResponse(`Fayl yuklashda xatolik: ${err.message}`, 500)
       );
     }
-    if (!req.file) {
-      return next(new ErrorResponse("Fayl yuklamadi", 400));
-    }
+    // Agar fayl bo‘lmasa, xatolik qaytarmaymiz, davom etamiz
     next();
   });
 };
