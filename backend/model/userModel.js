@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema(
   {
     userName: {
       type: String,
-      unique: true,
+
       required: [true, "Isimni kiritishingiz kerak!"],
     },
     email: {
