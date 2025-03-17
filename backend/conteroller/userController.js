@@ -10,29 +10,19 @@ const crypto = require("crypto");
 const register = async (req, res, next) => {
   const { userName, email, password, role } = req.body;
 
-  // 1. Foydalanuvchi mavjudligini tekshirish
-  const existUser = await userModel.findOne({ email });
-  if (existUser) {
-    return next(new ErrorResponse("Bu foydalanuvchi tizimda mavjud", 409));
-  }
-
-  // 2. Kerakli maydonlarni tekshirish
   if (!userName || !email || !password) {
     return next(new ErrorResponse("Maydonni to'liq to'ldiring", 400));
   }
 
-  // 3. Parol uzunligini tekshirish
   if (password.length < 4) {
     return next(
       new ErrorResponse("Parol kamida 4 ta belgidan iborat bo'lishi kerak", 400)
     );
   }
 
-  // 4. Rasmni fayl sifatida olish (agar yuklangan bo'lsa)
   const image = req.file ? req.file.filename : null;
 
   try {
-    // 5. Foydalanuvchini yaratish
     const user = await userModel.create({
       userName,
       email,
@@ -41,7 +31,6 @@ const register = async (req, res, next) => {
       role,
     });
 
-    // 6. Access token yaratish va cookie ga joylash
     const accessToken = user.jwtAccessToken();
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
@@ -67,82 +56,9 @@ const register = async (req, res, next) => {
       user,
     });
   } catch (error) {
-    console.log(error);
-    if (error.name === "ValidationError") {
-      const errorMessages = Object.values(error.errors).map(
-        (val) => val.message
-      );
-      return next(new ErrorResponse(errorMessages[0], 500));
-    }
-    return next(new ErrorResponse(error.message, 500));
+    next(error);
   }
 };
-
-// const register = async (req, res, next) => {
-//   const { userName, email, password, image, role } = req.body;
-
-//   const existUser = await userModel.findOne({ email });
-//   if (existUser) {
-//     return next(new ErrorResponse("Bu fofdalanuvchi tizimda mavjud", 409));
-//   }
-
-//   if (!userName || !email || !password) {
-//     return next(new ErrorResponse("Maydonni to'liq to'ldiring", 400));
-//   }
-
-//   if (password.length < 4) {
-//     return next(
-//       new ErrorResponse(
-//         "Paro'l kamida 4 ta belgidan iborat bo'lishi kerak",
-//         400
-//       )
-//     );
-//   }
-
-//   try {
-//     const image = req.file ? req.file.filename : null; // Faqat fayl nomini saqlaymiz
-//     const user = await userModel.create({
-//       userName,
-//       email,
-//       password,
-//       image,
-//       role,
-//     });
-
-//     const accessToken = user.jwtAccessToken();
-//     res.cookie("accessToken", accessToken, {
-//       httpOnly: true,
-//       secure: process.env.NODE_ENV === "production",
-//       sameSite: "strict",
-//       maxAge: 60 * 60 * 1000,
-//     });
-
-//     const refreshToken = user.jwtRefreshToken();
-//     res.cookie("refreshToken", refreshToken, {
-//       httpOnly: true,
-//       secure: process.env.NODE_ENV === "production",
-//       sameSite: "strict",
-//       maxAge: 24 * 60 * 60 * 1000,
-//     });
-
-//     res.status(201).json({
-//       success: true,
-//       message: "Ro'yxatdan o'tdingiz",
-//       accessToken,
-//       user,
-//     });
-//   } catch (error) {
-//     console.log(error);
-//     if (error.name === "ValidationError") {
-//       const errorMessages = Object.values(error.errors).map(
-//         (val) => val.message
-//       );
-//       next(new ErrorResponse(errorMessages[0], 500));
-//     } else {
-//       next(error.message);
-//     }
-//   }
-// };
 
 const login = async (req, res, next) => {
   try {
@@ -187,7 +103,7 @@ const login = async (req, res, next) => {
       user,
     });
   } catch (error) {
-    next(new ErrorResponse(error.message, 500));
+    next(error);
   }
 };
 
@@ -256,14 +172,7 @@ const updateUser = async (req, res, next) => {
       user: updatedUser,
     });
   } catch (error) {
-    if (error.name === "ValidationError") {
-      const errorMessages = Object.values(error.errors).map(
-        (val) => val.message
-      );
-      return next(new ErrorResponse(errorMessages[0], 400));
-    }
-    console.error("Server xatosi:", error.stack);
-    return next(new ErrorResponse("Server xatosi", 500));
+    next(error);
   }
 };
 
@@ -278,7 +187,7 @@ const getUsers = async (req, res, next) => {
       users,
     });
   } catch (error) {
-    next(new ErrorResponse(error.message, 500));
+    next(error);
   }
 };
 const userProfile = async (req, res, next) => {
@@ -292,7 +201,7 @@ const userProfile = async (req, res, next) => {
       user: req.user, // req user da bazaga qayta murojat qilish shart emas malumotlar IsAuthenticateddan ceshlanib keladi
     });
   } catch (error) {
-    next(new ErrorResponse(error.message, 500));
+    next(error);
   }
 };
 
@@ -324,7 +233,7 @@ const refreshAccessToken = async (req, res, next) => {
       accessToken: newAccessToken,
     });
   } catch (error) {
-    next(new ErrorResponse(error.message, 500));
+    next(error);
   }
 };
 

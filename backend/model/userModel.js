@@ -6,11 +6,11 @@ const userSchema = new mongoose.Schema(
   {
     userName: {
       type: String,
-
       required: [true, "Isimni kiritishingiz kerak!"],
     },
     email: {
       type: String,
+      unique: true, // userName noyob bo‘lishi uchun
       required: [true, "Emailingizni kiritishingiz kerak!"],
       match: [
         /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
@@ -96,4 +96,4 @@ userSchema.methods.jwtRefreshToken = function () {
   );
 };
 
-module.exports = mongoose.model("userModel", userSchema);
+module.exports = mongoose.model("User", userSchema);

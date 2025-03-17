@@ -9,10 +9,6 @@ const addCategory = async (req, res, next) => {
         new ErrorResponse("category nomini kiritishingiz shart", 400)
       );
     }
-    const existingCategory = await categoryModel.findOne({ name });
-    if (existingCategory) {
-      return next(new ErrorResponse("Bu nomdagi category tzimda mavjud", 409));
-    }
 
     const category = await categoryModel.create({ name, description });
     res.status(201).json({
@@ -21,14 +17,7 @@ const addCategory = async (req, res, next) => {
       category,
     });
   } catch (error) {
-    // MongoDB duplicate key xatosini tekshirish
-    if (error.code === 11000) {
-      return next(
-        new ErrorResponse("Bu nomdagi kategoriya allaqachon mavjud", 409)
-      );
-    }
-    // Boshqa xatolar uchun umumiy javob
-    next(new ErrorResponse(error.message, 500));
+    next(error);
   }
 };
 

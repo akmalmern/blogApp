@@ -13,12 +13,12 @@ const postSchema = new mongoose.Schema(
     },
     author: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: userModel,
+      ref: "User",
       required: true,
     },
     category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: categoryModel,
+      ref: "Category",
       required: true,
       default: null,
     },
@@ -29,13 +29,13 @@ const postSchema = new mongoose.Schema(
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: userModel,
+        ref: "User",
       },
     ],
     comments: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: commentModel,
+        ref: "Comment",
       },
     ],
     isPublished: {
@@ -46,4 +46,4 @@ const postSchema = new mongoose.Schema(
   { timestamps: true, versionKey: false }
 );
 
-module.exports = mongoose.model("postModel", postSchema);
+module.exports = mongoose.model("Post", postSchema);
