@@ -33,7 +33,7 @@ const getCategory = async (req, res, next) => {
       categories,
     });
   } catch (error) {
-    next(new ErrorResponse(error.message, 500));
+    next(error);
   }
 };
 
@@ -57,7 +57,7 @@ const deletCategory = async (req, res, next) => {
       message: "Kategoriya o'chirildi",
     });
   } catch (error) {
-    next(new ErrorResponse(error.message, 500));
+    next(error);
   }
 };
 
@@ -89,7 +89,7 @@ const updateCategory = async (req, res, next) => {
       category: editCat,
     });
   } catch (error) {
-    next(new ErrorResponse(error.message, 500));
+    next(error);
   }
 };
 

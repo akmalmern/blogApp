@@ -45,25 +45,53 @@ const getPosts = async (req, res, next) => {
 const updatePost = async (req, res, next) => {
   try {
     const { title, content, category } = req.body;
-    const image = req.file?.filename || post.image;
+
     const { id } = req.params;
+
     const post = await Post.findById(id);
-    if (!post)
+    if (!post) {
       return next(new ErrorResponse("Bunday ID bilan post topilmadi", 404));
+    }
     if (post.author.toString() !== req.user.id) {
       return next(
         new ErrorResponse("Faqat post muallifi uni yangilay oladi", 403)
       );
     }
-    const newPost = await Post.findByIdAndUpdate(post, {
-      title,
-      content,
-      category,
+    const image = req.file?.filename || post.image;
+    const postData = {
+      title: title || post.title,
+      content: content || post.content,
+      category: category || post.category,
       image,
+    };
+    const newPost = await Post.findByIdAndUpdate(post._id, postData, {
+      new: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "post yangilandi",
+      post: newPost,
     });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { addPost, getPosts };
+const deletePost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const post = await Post.findById(id);
+    if (!post) {
+      return next(new ErrorResponse("post topilmadi", 404));
+    }
+    await Post.findByIdAndDelete(post);
+    res.status(200).json({
+      success: true,
+      message: "post o'chirildi",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+module.exports = { addPost, getPosts, updatePost, deletePost };
