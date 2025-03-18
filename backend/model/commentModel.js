@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const commentSchema = new mongoose.Schema(
   {
-    constent: {
+    comment: {
       type: String,
       required: [true, "contentni nimadur yozing"],
     },
