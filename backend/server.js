@@ -6,6 +6,7 @@ const cookieParser = require("cookie-parser");
 const userRouter = require("./routes/userRouter");
 const categoryRouter = require("./routes/categoryRouter");
 const postRouter = require("./routes/postRouter");
+const commentRouter = require("./routes/commentRouter");
 const errorHandler = require("./middlware/error");
 // ***************************************************
 app.use(cookieParser());
@@ -15,6 +16,7 @@ dataDB();
 app.use("/user", userRouter);
 app.use("/category", categoryRouter);
 app.use("/post", postRouter);
+app.use("/comment", commentRouter);
 
 app.use(errorHandler);
 // ***************************************************

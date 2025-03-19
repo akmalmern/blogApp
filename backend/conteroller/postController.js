@@ -30,6 +30,14 @@ const getPosts = async (req, res, next) => {
     const posts = await Post.find()
       .populate("author", "userName image")
       .populate("category", "name")
+      .populate({
+        path: "comments",
+        select: "comment author",
+        populate: {
+          path: "author",
+          select: "userName image",
+        },
+      })
       .sort({ createdAt: -1 });
     if (posts.length === 0) {
       return next(new ErrorResponse("Postlar topilmadi", 404));
