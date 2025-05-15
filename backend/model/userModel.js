@@ -80,7 +80,7 @@ userSchema.methods.jwtAccessToken = function () {
   return jwt.sign(
     { id: this._id, role: this.role },
     process.env.JWT_ACCESS_TOKEN,
-    { expiresIn: "1h" }
+    { expiresIn: "1m" }
   );
 };
 

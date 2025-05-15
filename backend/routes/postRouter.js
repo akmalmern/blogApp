@@ -6,6 +6,7 @@ const {
   updatePost,
   deletePost,
   getUserPosts,
+  getOnePost,
 } = require("../conteroller/postController");
 const uploadMiddleware = require("../middlware/uploadMiddleware");
 const router = express.Router();
@@ -15,5 +16,6 @@ router.get("/posts", getPosts);
 router.get("/my-posts", isAuthenticated, getUserPosts);
 router.put("/update-post/:id", uploadMiddleware, isAuthenticated, updatePost);
 router.delete("/delete/:id", isAuthenticated, deletePost);
+router.get("/one-post/:id", isAuthenticated, getOnePost);
 
 module.exports = router;

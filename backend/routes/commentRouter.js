@@ -7,7 +7,7 @@ const {
 const { isAuthenticated } = require("../middlware/isAuth");
 const router = express.Router();
 
-router.post("/add-comment/:id", isAuthenticated, addComment);
+router.put("/add-comment/:id", isAuthenticated, addComment);
 router.put("/update/:id", isAuthenticated, updateComment);
 router.delete("/delete/:id", isAuthenticated, deleteComment);
 

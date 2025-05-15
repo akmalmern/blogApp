@@ -22,11 +22,15 @@ const addComment = async (req, res, next) => {
       { $push: { comments: newComment._id } },
       { new: true, runValidators: true }
     );
+    const populatedComment = await newComment.populate(
+      "author",
+      "userName image"
+    );
 
     res.status(200).json({
       success: true,
       message: "comment qo'shildi",
-      comment: newComment,
+      comment: populatedComment,
     });
   } catch (error) {
     next(error);

@@ -38,6 +38,7 @@ const postSchema = new mongoose.Schema(
         ref: "Comment",
       },
     ],
+    views: { type: Number, default: 0 },
     isPublished: {
       type: Boolean,
       default: false,

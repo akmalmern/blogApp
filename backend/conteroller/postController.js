@@ -25,6 +25,36 @@ const addPost = async (req, res, next) => {
   }
 };
 
+const getOnePost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const post = await Post.findById(id)
+      .populate("author", "userName image")
+      .populate("category", "name")
+      .populate({
+        path: "comments",
+        select: "comment author",
+        populate: {
+          path: "author",
+          select: "userName image",
+        },
+      });
+    if (!post) {
+      return next(new ErrorResponse("post topilmadi", 404));
+    }
+    // admin ko'rsa views 1 ga oshmaydi
+    if (req.user.role !== "admin") {
+      await Post.findByIdAndUpdate(id, { $inc: { views: 1 } }, { new: true });
+    }
+    res.status(200).json({
+      success: true,
+      post,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getPosts = async (req, res, next) => {
   try {
     const posts = await Post.find()
@@ -42,10 +72,11 @@ const getPosts = async (req, res, next) => {
     if (posts.length === 0) {
       return next(new ErrorResponse("Postlar topilmadi", 404));
     }
+
     res.status(200).json({
       success: true,
       message: "postlar",
-
+      length: posts.length,
       posts,
     });
   } catch (error) {
@@ -57,9 +88,11 @@ const getPosts = async (req, res, next) => {
 const getUserPosts = async (req, res, next) => {
   try {
     // 1. Foydalanuvchiga tegishli postlarni olish
-    const posts = await Post.find({ author: req.user.id }).sort({
-      createdAt: -1,
-    });
+    const posts = await Post.find({ author: req.user.id })
+      .sort({
+        createdAt: -1,
+      })
+      .populate("category", "name");
 
     // 2. Agar postlar bo‘lmasa, xabar berish
     if (!posts.length) {
@@ -100,7 +133,7 @@ const updatePost = async (req, res, next) => {
       try {
         await fs.unlink(oldImagePath); // ✅ Asinxron o‘chirish
       } catch (err) {
-        console.error("Eski rasmni o‘chirishda xato:", err);
+        console.error("Eski rasmni o'chirishda xato:", err);
       }
     }
 
@@ -129,18 +162,37 @@ const updatePost = async (req, res, next) => {
 const deletePost = async (req, res, next) => {
   try {
     const { id } = req.params;
+
     const post = await Post.findById(id);
     if (!post) {
-      return next(new ErrorResponse("post topilmadi", 404));
+      return next(new ErrorResponse("Post topilmadi", 404));
     }
-    await Post.findByIdAndDelete(post);
+
+    if (post.image) {
+      const imagePath = path.join(__dirname, "..", "uploads", post.image);
+      try {
+        await fs.unlink(imagePath);
+      } catch (err) {
+        console.error("Post rasmini o'chirishda xato:", err);
+      }
+    }
+
+    await Post.findByIdAndDelete(id);
+
     res.status(200).json({
       success: true,
-      message: "post o'chirildi",
+      message: "Post  o'chirildi",
     });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { addPost, getPosts, updatePost, deletePost, getUserPosts };
+module.exports = {
+  addPost,
+  getPosts,
+  updatePost,
+  deletePost,
+  getUserPosts,
+  getOnePost,
+};

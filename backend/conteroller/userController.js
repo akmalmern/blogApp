@@ -34,16 +34,18 @@ const register = async (req, res, next) => {
     const accessToken = user.jwtAccessToken();
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      // secure: process.env.NODE_ENV === "production",
+      // secure: false,
       sameSite: "strict",
-      maxAge: 60 * 60 * 1000, // 1 soat
+      maxAge: 60 * 1000, // 1 soat
     });
 
     // 7. Refresh token yaratish va cookie ga joylash
     const refreshToken = user.jwtRefreshToken();
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      // secure: process.env.NODE_ENV === "production",
+      // secure: false,
       sameSite: "strict",
       maxAge: 24 * 60 * 60 * 1000, // 1 kun
     });
@@ -53,7 +55,12 @@ const register = async (req, res, next) => {
       success: true,
       message: "Ro'yxatdan o'tdingiz",
       accessToken,
-      user,
+      user: {
+        userName: user.userName,
+        email: user.email,
+        role: user.role,
+        image: user.image,
+      },
     });
   } catch (error) {
     next(error);
@@ -83,14 +90,16 @@ const login = async (req, res, next) => {
     const accessToken = await user.jwtAccessToken();
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      // secure: process.env.NODE_ENV === "production",
+      // secure: false,
       sameSite: "strict",
-      maxAge: 60 * 60 * 1000,
+      maxAge: 60 * 1000,
     });
     const refreshToken = user.jwtRefreshToken();
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      // secure: process.env.NODE_ENV === "production",
+      // secure: false,
       sameSite: "strict",
       maxAge: 24 * 60 * 60 * 1000,
     });
@@ -176,25 +185,7 @@ const updateUser = async (req, res, next) => {
   }
 };
 
-const getUsers = async (req, res, next) => {
-  try {
-    const users = await userModel.find().select("-password ");
-    if (!users) {
-      return next(new ErrorResponse("Foydalanuvchilar mavjud emas", 404));
-    }
-    res.status(200).json({
-      success: true,
-      users,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 const userProfile = async (req, res, next) => {
-  // const user = await userModel.findById(req.user.id).select("-password");
-  // if (!user) {
-  //   return next(new ErrorResponse("Foydalanuvchi topilmadi", 404));
-  // }
   try {
     res.status(200).json({
       success: true,
@@ -205,37 +196,97 @@ const userProfile = async (req, res, next) => {
   }
 };
 
-const refreshAccessToken = async (req, res, next) => {
+const logOut = (req, res, next) => {
   try {
-    const { refreshToken } = req.cookies;
-    if (!refreshToken) {
-      return next(new ErrorResponse("Yaroqsiz yoki muddati o'tgan token", 403));
-    }
-    // rerfresh tokenni tekshirish
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_TOKEN);
-
-    const user = await userModel.findById(decoded.id);
-    if (!user) {
-      return next(new ErrorResponse("Foydalanuvchi topilmadi", 404));
-    }
-    // yangi access token yaratish;
-    const newAccessToken = user.jwtAccessToken();
-    res.cookie("accessToken", newAccessToken, {
+    // Refresh tokenni cookie'dan olib tashlash
+    res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 1000,
+      // secure: process.env.NODE_ENV === "production",
+      // secure: false,
+      sameSite: "Strict",
+    });
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+      secure: false,
+      sameSite: "Strict",
     });
 
     res.status(200).json({
       success: true,
-
-      accessToken: newAccessToken,
+      message: "Tizimdan muvaffaqiyatli chiqdingiz",
     });
   } catch (error) {
     next(error);
   }
 };
+
+const refreshAccessToken = async (req, res, next) => {
+  try {
+    // Cookie’dan refreshToken ni olish
+    const { refreshToken } = req.cookies;
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token topilmadi",
+      });
+    }
+
+    // Refresh tokenni tekshirish
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_TOKEN);
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token noto‘g‘ri yoki muddati tugagan",
+      });
+    }
+
+    // Foydalanuvchini topish
+    const user = await userModel.findById(decoded.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Foydalanuvchi topilmadi",
+      });
+    }
+
+    // Yangi accessToken va refreshToken yaratish
+    const newAccessToken = user.jwtAccessToken();
+    const newRefreshToken = user.jwtRefreshToken();
+
+    // Cookie’ga yangi tokenlarni joylashtirish
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+      secure: false,
+      sameSite: "strict",
+      maxAge: 60 * 1000, // 1 soat
+    });
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+      secure: false,
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 1 kun
+    });
+
+    // Muvaffaqiyatli javob qaytarish
+    res.status(200).json({
+      success: true,
+      accessToken: newAccessToken,
+    });
+  } catch (error) {
+    console.error("Refresh token endpoint xatosi:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server xatosi: " + error.message,
+    });
+  }
+};
+
+// Route
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -295,18 +346,17 @@ const forgotPassword = async (req, res, next) => {
 
 const resetPassword = async (req, res, next) => {
   try {
-    const { email, resetToken, newPassword } = req.body;
+    const { resetToken, newPassword } = req.body;
 
     // Majburiy maydonlarni tekshirish
-    if (!email || !resetToken || !newPassword) {
+    if (!resetToken || !newPassword) {
       return next(
-        new ErrorResponse("Email, kod va yangi parol kiritish majburiy", 400)
+        new ErrorResponse(" kod va yangi parol kiritish majburiy", 400)
       );
     }
 
     // Foydalanuvchini topish va tokenni tekshirish
     const user = await userModel.findOne({
-      email,
       resetPasswordToken: resetToken,
       resetPasswordExpire: { $gt: Date.now() }, // Kod hali amalda
     });
@@ -314,16 +364,6 @@ const resetPassword = async (req, res, next) => {
     if (!user) {
       return next(
         new ErrorResponse("Noto‘g‘ri kod yoki kodning muddati tugagan", 400)
-      );
-    }
-
-    // Yangi parol uzunligini tekshirish
-    if (newPassword.length < 8) {
-      return next(
-        new ErrorResponse(
-          "Yangi parol kamida 8 belgidan iborat bo‘lishi kerak",
-          400
-        )
       );
     }
 
@@ -346,8 +386,9 @@ module.exports = {
   register,
   login,
   userProfile,
+  logOut,
   refreshAccessToken,
-  getUsers,
+
   updateUser,
   forgotPassword,
   resetPassword,
