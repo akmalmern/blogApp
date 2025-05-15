@@ -16,7 +16,7 @@ const ForgotPassword = () => {
       setTimeout(() => {
         setEmail("");
         navigate("/reset-password");
-      }, 2000);
+      }, 1000);
     } catch (error) {
       console.log(error);
     }
